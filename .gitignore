@@ -4,3 +4,4 @@ task1_kr1.py
 task2_kr1.py
 /.idea
 .gitattributes
+*.png
