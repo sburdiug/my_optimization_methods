@@ -83,6 +83,8 @@ def steepest_descent_optimal_step(
                     "lambda_opt": 0.0,
                     "x_next": xk.copy(),
                     "f_x_next": f_k,
+                    "grad_x_next": grad_k.copy(),
+                    "grad_norm_x_next": grad_norm_k,
                     "phi_expr": sp.Integer(0),
                     "dphi_expr": sp.Integer(0),
                 }
@@ -93,6 +95,8 @@ def steepest_descent_optimal_step(
             fx=fx, variables=variables, xk=xk, s_k=s_k
         )
         x_next = xk + lambda_opt * s_k
+        grad_next = np.asarray(grad_func(*x_next), dtype=float).reshape(-1)
+        grad_norm_next = float(np.linalg.norm(grad_next))
         f_next = float(f_func(*x_next))
 
         history.append(
@@ -106,6 +110,8 @@ def steepest_descent_optimal_step(
                 "lambda_opt": lambda_opt,
                 "x_next": x_next.copy(),
                 "f_x_next": f_next,
+                "grad_x_next": grad_next.copy(),
+                "grad_norm_x_next": grad_norm_next,
                 "phi_expr": phi_expr,
                 "dphi_expr": dphi_expr,
             }
@@ -210,6 +216,9 @@ def run_steepest_descent_optimal_step(
         print(f"lambda_{k} = {item['lambda_opt']:.6f}")
         print(f"x^({k + 1}) = ({item['x_next'][0]:.3f}, {item['x_next'][1]:.3f})")
         print(f"f(x^({k + 1})) = {item['f_x_next']:.3f}")
+        print(
+            f"||grad f(x^({k + 1}))|| = {item['grad_norm_x_next']:.3f}"
+        )
 
     if show_plot:
         plot_steepest_descent_optimal_step(result)

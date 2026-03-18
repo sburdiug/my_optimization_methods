@@ -167,6 +167,9 @@ def run_steepest_descent_constant_step(
         print(f"s^({k}) = ({item['s'][0]:.3f}, {item['s'][1]:.3f})")
         print(f"x^({k + 1}) = ({item['x_next'][0]:.3f}, {item['x_next'][1]:.3f})")
         print(f"f(x^({k + 1})) = {item['f_x_next']:.3f}")
+        print(
+            f"||grad f(x^({k + 1}))|| = {item['grad_norm_x_next']:.3f}"
+        )
 
     if show_plot:
         plot_steepest_descent_constant_step(result)

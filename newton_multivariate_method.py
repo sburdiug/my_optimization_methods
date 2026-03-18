@@ -58,6 +58,8 @@ def newton_multivariate_method(
                     "delta_norm": 0.0,
                     "x_next": xk.copy(),
                     "f_x_next": f_k,
+                    "grad_x_next": grad_k.copy(),
+                    "grad_norm_x_next": grad_norm_k,
                 }
             )
             break
@@ -71,6 +73,8 @@ def newton_multivariate_method(
 
         x_next = xk - delta
         delta_norm = float(np.linalg.norm(delta))
+        grad_next = np.asarray(grad_func(*x_next), dtype=float).reshape(-1)
+        grad_norm_next = float(np.linalg.norm(grad_next))
         f_next = float(f_func(*x_next))
 
         history.append(
@@ -86,6 +90,8 @@ def newton_multivariate_method(
                 "delta_norm": delta_norm,
                 "x_next": x_next.copy(),
                 "f_x_next": f_next,
+                "grad_x_next": grad_next.copy(),
+                "grad_norm_x_next": grad_norm_next,
             }
         )
 
@@ -197,6 +203,7 @@ def run_newton_multivariate_method(
         print(f"delta^({k}) = {_fmt_vec(item['delta'])}")
         print(f"x^({k + 1}) = {_fmt_vec(item['x_next'])}")
         print(f"f(x^({k + 1})) = {item['f_x_next']:.3f}")
+        print(f"||grad f(x^({k + 1}))|| = {item['grad_norm_x_next']:.3f}")
 
     print()
     print(f"Фінальна точка: {_fmt_vec(result['x_final'], 6)}")
