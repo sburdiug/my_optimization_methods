@@ -1,60 +1,35 @@
+import numpy as np
 import sympy as sp
 
-from steepest_descent_constant_step import run_steepest_descent_constant_step
-from steepest_descent_optimal_step import run_steepest_descent_optimal_step
-from partan_steepest_descent_method import run_partan_mns
-from newton_multivariate_method import run_newton_multivariate_method
+from dfp_method import run_dfp_method
+from fletcher_reeves_method import run_fletcher_reeves_method
 
 
 if __name__ == "__main__":
-    # Налаштування методів у main.py
+    # Налаштування методу ДФП
     x1, x2 = sp.symbols("x1 x2")
-    max_iter = 3
+    fx = 2 * x1**2 + x1 * x2 + x2**2
+    x_start = (2, 2)
+    a0 = np.eye(2)
+    max_iter = 2
 
-    fx = 3 * (x1 - 4)** 2 + x1 * x2 + 7 * x2 ** 2
-
-
-
-    #fx_const = 3 * x1**2 + x1 * x2 + 2 * x2**2
-    x_start_const = (9.8, 9.8)
-    step = 1.0
-    run_steepest_descent_constant_step(
+    run_dfp_method(
         fx=fx,
-        x_start=x_start_const,
-        step=step,
+        x_start=x_start,
+        a0=a0,
         max_iter=max_iter,
         show_plot=True,
     )
+    print("="*50,"\n")
+    # Налаштування методу Флетчера-Рівса
+    x1, x2 = sp.symbols("x1 x2")
+    fx = 2 * x1**2 + x1 * x2 + 2*x2**2 +8*x1
+    x_start = (0, 0)
+    max_iter = 2
 
-    print("\n" + "=" * 60 + "\n")
-
-    #fx_opt = 4 * x1**2 + x1 * x2 + x2**2
-    x_start_opt = (9.8, 9.8)
-    run_steepest_descent_optimal_step(
+    run_fletcher_reeves_method(
         fx=fx,
-        x_start=x_start_opt,
+        x_start=x_start,
         max_iter=max_iter,
-        show_plot=True,
-    )
-
-    print("\n" + "=" * 60 + "\n")
-
-    #fx_partan = 4 * x1**2 + x1 * x2 + x2**2
-    run_partan_mns(
-        fx=fx,
-        x_start=(9.8, 9.8),
-        max_iter=max_iter,
-        eps=1e-4,
-        show_plot=True,
-    )
-
-    print("\n" + "=" * 60 + "\n")
-
-    #fx_newton = 4 * x1**2 + x1 * x2 + x2**2
-    run_newton_multivariate_method(
-        fx=fx,
-        x_start=(9.8, 9.8),
-        max_iter=max_iter,
-        eps=1e-4,
         show_plot=True,
     )
