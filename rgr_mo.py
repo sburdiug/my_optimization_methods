@@ -46,10 +46,6 @@ def get_sven_interval(phi, delta_lambda):
     return interval
 
 
-def midpoint(interval):
-    return 0.5 * (interval[0] + interval[1])
-
-
 def line_search(method, phi, interval, eps):
     if method == "golden":
         result_interval, _ = golden_section_method(phi, interval[0], interval[1], eps)
@@ -58,12 +54,10 @@ def line_search(method, phi, interval, eps):
     else:
         raise ValueError("method must be 'golden' or 'powell'")
 
-    return midpoint(result_interval), result_interval
+    return np.mean(result_interval), result_interval
 
 
 def next_point(xk, direction, lmbd):
-    xk = np.asarray(xk, dtype=float)
-    direction = np.asarray(direction, dtype=float)
     return xk + lmbd * direction
 
 
@@ -165,9 +159,9 @@ if __name__ == "__main__":
         f"I4=[{interval_sven_4[0]:.3f}, {interval_sven_4[1]:.3f}]"
     )
     print(f"x^1 = ({x1[0]:.3f}, {x1[1]:.3f})")
-    print(f"x^1 = ({x2[0]:.3f}, {x2[1]:.3f})")
-    print(f"x^1 = ({x3[0]:.3f}, {x3[1]:.3f})")
-    print(f"x^1 = ({x4[0]:.3f}, {x4[1]:.3f})")
+    print(f"x^2 = ({x2[0]:.3f}, {x2[1]:.3f})")
+    print(f"x^3 = ({x3[0]:.3f}, {x3[1]:.3f})")
+    print(f"x^4 = ({x4[0]:.3f}, {x4[1]:.3f})")
     print(
         f"lambda0 = {lambda0:.3f}, lambda1 = {lambda1:.3f}, "
         f"lambda2 = {lambda2:.3f}, lambda3 = {lambda3:.3f}"
