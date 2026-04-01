@@ -17,8 +17,9 @@ SHOW_TRAJECTORY_PLOT = True
 
 def objective(x):
     x_arr = np.asarray(x, dtype=float)
-    x1, x2 = x_arr if x_arr.ndim == 1 or x_arr.shape[-1] != 2 else np.moveaxis(x_arr, -1, 0)
+    x1, x2 = x_arr  # розпакування по осі 0 завжди коректне
     return 3 * (x1 - N) ** 2 + x1 * x2 + 7 * x2**2
+
 
 
 def make_phi(xk, direction):
@@ -35,8 +36,6 @@ def make_phi(xk, direction):
 
 
 def compute_delta(xk, direction):
-    xk = np.asarray(xk, dtype=float)
-    direction = np.asarray(direction, dtype=float)
     return DELTA_BASE * (np.linalg.norm(xk) / np.linalg.norm(direction))
 
 
@@ -83,8 +82,8 @@ def plot_trajectory(points):
     if not SHOW_TRAJECTORY_PLOT:
         return
 
-    px = [float(point[0]) for point in points]
-    py = [float(point[1]) for point in points]
+    pts = np.array(points)
+    px, py = pts[:, 0], pts[:, 1]
 
     margin = 2.0
     grid_x = np.linspace(min(px) - margin, max(px) + margin, 250)
@@ -165,10 +164,10 @@ if __name__ == "__main__":
         f"I3=[{interval_sven_3[0]:.3f}, {interval_sven_3[1]:.3f}], "
         f"I4=[{interval_sven_4[0]:.3f}, {interval_sven_4[1]:.3f}]"
     )
-    print(f"x^1 = ({to_float3(x1[0])}, {to_float3(x1[1])})")
-    print(f"x^2 = ({to_float3(x2[0])}, {to_float3(x2[1])})")
-    print(f"x^3 = ({to_float3(x3[0])}, {to_float3(x3[1])})")
-    print(f"x^4 = ({to_float3(x4[0])}, {to_float3(x4[1])})")
+    print(f"x^1 = ({x1[0]:.3f}, {x1[1]:.3f})")
+    print(f"x^1 = ({x2[0]:.3f}, {x2[1]:.3f})")
+    print(f"x^1 = ({x3[0]:.3f}, {x3[1]:.3f})")
+    print(f"x^1 = ({x4[0]:.3f}, {x4[1]:.3f})")
     print(
         f"lambda0 = {lambda0:.3f}, lambda1 = {lambda1:.3f}, "
         f"lambda2 = {lambda2:.3f}, lambda3 = {lambda3:.3f}"
