@@ -6,10 +6,9 @@ def sven_method(f, x0, delta):
     k = 0
     points = [(k, x0, f(x0))]
 
-    # Крок 1: Обчислюємо f(x₀)
+    # Крок 1: Обчислюємо f(x0)
     f0 = f(x0)
-
-    # Крок 2: Обчислюємо f(x₀ - |Δ|) та f(x₀ + |Δ|)
+    # Крок 2: Обчислюємо f(x0 - |Δ|) та f(x0 + |Δ|)
     x_minus = x0 - abs(delta)
     x_plus = x0 + abs(delta)
     f_minus = f(x_minus)
@@ -30,15 +29,12 @@ def sven_method(f, x0, delta):
         delta = -abs(delta)
         x_curr = x0
     elif f_minus >= f0 and f_plus >= f0:
-        # Мінімум між x_minus та x_plus
         print("Мінімум між x0-Δ та x0+Δ")
         return (min(x_minus, x_plus), max(x_minus, x_plus)), points
     else:
-        # Некласичний випадок (плоскі ділянки або рівність)
         print("Невизначений напрямок, беремо інтервал навколо x0")
         return (min(x_minus, x_plus), max(x_minus, x_plus)), points
 
-    # Крок 3: Ітеративне розширення інтервалу
     while True:
         x_next = x_curr + 2 ** k * delta
         f_next = f(x_next)

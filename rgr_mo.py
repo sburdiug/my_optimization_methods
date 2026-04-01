@@ -17,7 +17,7 @@ SHOW_TRAJECTORY_PLOT = True
 
 def objective(x):
     x_arr = np.asarray(x, dtype=float)
-    x1, x2 = x_arr  # розпакування по осі 0 завжди коректне
+    x1, x2 = x_arr
     return 3 * (x1 - N) ** 2 + x1 * x2 + 7 * x2**2
 
 
@@ -65,9 +65,17 @@ def print_iteration(iteration_idx, method_name, xk, direction, delta_lambda, src
     print(f"\nІтерація {iteration_idx} ({method_name}):")
     print(f"x^{iteration_idx - 1} = ({xk[0]:.3f}, {xk[1]:.3f})")
     print(f"s = ({direction[0]:.3f}, {direction[1]:.3f})")
+    if iteration_idx == 4:
+        print(f"x3-x1 = ({direction[0]:.3f}, {direction[1]:.3f})")
     print(f"Δλ = {delta_lambda:.3f}")
-    print(f"Вхідний інтервал = [{src_interval[0]:.3f}, {src_interval[1]:.3f}]")
-    print(f"Вихідний інтервал = [{result_interval[0]:.3f}, {result_interval[1]:.3f}]")
+    print(f"Інтервал невизначеності = [{src_interval[0]:.3f}, {src_interval[1]:.3f}]")
+    if method_name.lower() == "dsk-powell":
+        x1 = src_interval[0]
+        x3 = src_interval[1]
+        x2 = 0.5 * (x1 + x3)
+        print(f"x1 = {x1:.3f}, x2 = {x2:.3f}, x3 = {x3:.3f}, x* = {lmbd:.3f}")
+    else:
+        print(f"Вихідний інтервал = [{result_interval[0]:.3f}, {result_interval[1]:.3f}]")
     print(f"λ_{iteration_idx - 1} = {lmbd:.3f}")
     print(f"x^{iteration_idx} = ({x_next[0]:.3f}, {x_next[1]:.3f})")
 
@@ -113,6 +121,7 @@ if __name__ == "__main__":
     # Sven + Golden/Powell on each iteration.
     delta0 = compute_delta(x0, s2)
     phi1 = make_phi(x0, s2)
+
     interval0 = get_sven_interval(phi1, delta0)
 
     # Iteration 1: Golden, direction S^(2)
@@ -123,6 +132,7 @@ if __name__ == "__main__":
     # Iteration 2: Golden, direction S^(1)
     delta1 = compute_delta(x1, s1)
     phi2 = make_phi(x1, s1)
+    print("=" * 70)
     interval_sven_2 = get_sven_interval(phi2, delta1)
     lambda1, interval2 = line_search("golden", phi2, interval_sven_2, EPS)
     x2 = next_point(x1, s1, lambda1)
@@ -131,6 +141,7 @@ if __name__ == "__main__":
     # Iteration 3: DSK-Powell, direction S^(2)
     delta2 = compute_delta(x2, s2)
     phi3 = make_phi(x2, s2)
+    print("=" * 70)
     interval_sven_3 = get_sven_interval(phi3, delta2)
     lambda2, interval3 = line_search("powell", phi3, interval_sven_3, EPS)
     x3 = next_point(x2, s2, lambda2)
@@ -142,6 +153,7 @@ if __name__ == "__main__":
         raise ValueError("Direction (x^3 - x^1) is near zero; cannot continue iteration 4.")
     delta3 = compute_delta(x3, s4)
     phi4 = make_phi(x3, s4)
+    print("=" * 70)
     interval_sven_4 = get_sven_interval(phi4, delta3)
     lambda3, interval4 = line_search("powell", phi4, interval_sven_4, EPS)
     x4 = next_point(x3, s4, lambda3)
