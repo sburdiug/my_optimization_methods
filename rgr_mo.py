@@ -49,12 +49,12 @@ def get_sven_interval(phi, delta_lambda):
 def line_search(method, phi, interval, eps):
     if method == "golden":
         result_interval, _ = golden_section_method(phi, interval[0], interval[1], eps)
+        return np.mean(result_interval), result_interval
     elif method == "powell":
-        result_interval = powell_method(phi, interval[0], interval[1], eps)
+        lambda_star, powell_info = powell_method(phi, interval[0], interval[1], eps)
+        return lambda_star, powell_info
     else:
         raise ValueError("method must be 'golden' or 'powell'")
-
-    return np.mean(result_interval), result_interval
 
 
 def next_point(xk, direction, lmbd):
@@ -67,13 +67,25 @@ def print_iteration(iteration_idx, method_name, xk, direction, delta_lambda, src
     print(f"s = ({direction[0]:.3f}, {direction[1]:.3f})")
     if iteration_idx == 4:
         print(f"x3-x1 = ({direction[0]:.3f}, {direction[1]:.3f})")
+    if iteration_idx == 2:
+        step_by_points = np.linalg.norm(x_next - xk)
+        step_by_lambda = abs(lmbd) * np.linalg.norm(direction)
+        print(f"Перевірка кроку (іт.2): ||x^2-x^1|| = {step_by_points:.3f}, |λ1|*||s|| = {step_by_lambda:.3f}")
     print(f"Δλ = {delta_lambda:.3f}")
     print(f"Інтервал невизначеності = [{src_interval[0]:.3f}, {src_interval[1]:.3f}]")
     if method_name.lower() == "dsk-powell":
-        x1 = src_interval[0]
-        x3 = src_interval[1]
-        x2 = 0.5 * (x1 + x3)
-        print(f"x1 = {x1:.3f}, x2 = {x2:.3f}, x3 = {x3:.3f}, x* = {lmbd:.3f}")
+        print(
+            f"x1 = {result_interval['x1']:.3f}, x2 = {result_interval['x2']:.3f}, "
+            f"x3 = {result_interval['x3']:.3f}, x* = {result_interval['x_star']:.3f}"
+        )
+        print(
+            f"Критерій: |x*-x2| = {result_interval['dx']:.3e}, "
+            f"|f(x*)-f(x2)| = {result_interval['df']:.3e}"
+        )
+        print(
+            f"Критерій {'виконано' if result_interval['criterion_met'] else 'НЕ виконано'} "
+            f"за {result_interval['iterations']} іт."
+        )
     else:
         print(f"Вихідний інтервал = [{result_interval[0]:.3f}, {result_interval[1]:.3f}]")
     print(f"λ_{iteration_idx - 1} = {lmbd:.3f}")
