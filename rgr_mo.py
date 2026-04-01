@@ -17,7 +17,7 @@ SHOW_TRAJECTORY_PLOT = True
 
 def objective(x):
     x_arr = np.asarray(x, dtype=float)
-    x1, x2 = x_arr  # розпакування по осі 0 завжди коректне
+    x1, x2 = x_arr
     return 3 * (x1 - N) ** 2 + x1 * x2 + 7 * x2**2
 
 
