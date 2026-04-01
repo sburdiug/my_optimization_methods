@@ -61,6 +61,22 @@ def next_point(xk, direction, lmbd):
     return xk + lmbd * direction
 
 
+def print_powell_history(history):
+    for item in history:
+        print(
+            f"  [{item['k']}] x1 = {item['x1']:.3f}, x2 = {item['x2']:.3f}, "
+            f"x3 = {item['x3']:.3f}, x* = {item['x_star']:.3f}"
+        )
+        print(
+            f"      f1 = {item['f1']:.3f}, f2 = {item['f2']:.3f}, "
+            f"f3 = {item['f3']:.3f}, f* = {item['f_star']:.3f}"
+        )
+        print(
+            f"      x_min = {item['x_min']:.3f}, f_min = {item['f_min']:.3f}, "
+            f"|x*-x_min| = {item['dx']:.3e}, |f(x*)-f_min| = {item['df']:.3e}"
+        )
+
+
 def print_iteration(iteration_idx, method_name, xk, direction, delta_lambda, src_interval, result_interval, lmbd, x_next):
     print(f"\nІтерація {iteration_idx} ({method_name}):")
     print(f"x^{iteration_idx - 1} = ({xk[0]:.3f}, {xk[1]:.3f})")
@@ -74,17 +90,11 @@ def print_iteration(iteration_idx, method_name, xk, direction, delta_lambda, src
     print(f"Δλ = {delta_lambda:.3f}")
     print(f"Інтервал невизначеності = [{src_interval[0]:.3f}, {src_interval[1]:.3f}]")
     if method_name.lower() == "dsk-powell":
+        print("Хід методу ДСК-Пауелла:")
+        print_powell_history(result_interval["history"])
         print(
             f"x1 = {result_interval['x1']:.3f}, x2 = {result_interval['x2']:.3f}, "
             f"x3 = {result_interval['x3']:.3f}, x* = {result_interval['x_star']:.3f}"
-        )
-        print(
-            f"Критерій: |x*-x_min| = {result_interval['dx']:.3e}, "
-            f"|f(x*)-f_min| = {result_interval['df']:.3e}"
-        )
-        print(
-            f"Критерій {'виконано' if result_interval['criterion_met'] else 'НЕ виконано'} "
-            f"за {result_interval['iterations']} іт."
         )
     else:
         print(f"Вихідний інтервал = [{result_interval[0]:.3f}, {result_interval[1]:.3f}]")

@@ -6,6 +6,7 @@ def powell_method(f, a, b, eps=0.01, max_iter=100):
     f2 = f(x2)
     f3 = f(x3)
     tiny = 1e-12
+    history = []
 
     for k in range(max_iter):
         denom = (x2 - x1) * (f2 - f3) - (x2 - x3) * (f2 - f1)
@@ -22,6 +23,23 @@ def powell_method(f, a, b, eps=0.01, max_iter=100):
         x_min, f_min = min(((x1, f1), (x2, f2), (x3, f3)), key=lambda item: item[1])
         dx = abs(x_min - x_star)
         df = abs(f_min - f_star)
+        history.append(
+            {
+                "k": k,
+                "x1": x1,
+                "x2": x2,
+                "x3": x3,
+                "x_star": x_star,
+                "x_min": x_min,
+                "f1": f1,
+                "f2": f2,
+                "f3": f3,
+                "f_star": f_star,
+                "f_min": f_min,
+                "dx": dx,
+                "df": df,
+            }
+        )
         print(
             f"[{k}] x1={x1:.3f} x2={x2:.3f} x3={x3:.3f} x*={x_star:.3f} | "
             f"xmin={x_min:.3f} | |x*-xmin|={dx:.3e} | |f*-fmin|={df:.3e}"
@@ -40,6 +58,7 @@ def powell_method(f, a, b, eps=0.01, max_iter=100):
                 "df": df,
                 "criterion_met": True,
                 "iterations": k + 1,
+                "history": history,
             }
 
         if abs(x_star - x2) <= tiny:
@@ -65,6 +84,7 @@ def powell_method(f, a, b, eps=0.01, max_iter=100):
                     "df": df,
                     "criterion_met": False,
                     "iterations": k + 1,
+                    "history": history,
                 }
             continue
 
@@ -105,4 +125,5 @@ def powell_method(f, a, b, eps=0.01, max_iter=100):
         "df": abs(f_min - f_star),
         "criterion_met": False,
         "iterations": max_iter,
+        "history": history,
     }
