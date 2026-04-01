@@ -79,8 +79,8 @@ def print_iteration(iteration_idx, method_name, xk, direction, delta_lambda, src
             f"x3 = {result_interval['x3']:.3f}, x* = {result_interval['x_star']:.3f}"
         )
         print(
-            f"Критерій: |x*-x2| = {result_interval['dx']:.3e}, "
-            f"|f(x*)-f(x2)| = {result_interval['df']:.3e}"
+            f"Критерій: |x*-x_min| = {result_interval['dx']:.3e}, "
+            f"|f(x*)-f_min| = {result_interval['df']:.3e}"
         )
         print(
             f"Критерій {'виконано' if result_interval['criterion_met'] else 'НЕ виконано'} "
@@ -88,6 +88,10 @@ def print_iteration(iteration_idx, method_name, xk, direction, delta_lambda, src
         )
     else:
         print(f"Вихідний інтервал = [{result_interval[0]:.3f}, {result_interval[1]:.3f}]")
+        if iteration_idx == 2:
+            print(
+                f"Обчислення λ1: ({result_interval[0]:.3f} + {result_interval[1]:.3f}) / 2 = {lmbd:.3f}"
+            )
     print(f"λ_{iteration_idx - 1} = {lmbd:.3f}")
     print(f"x^{iteration_idx} = ({x_next[0]:.3f}, {x_next[1]:.3f})")
 
@@ -144,16 +148,17 @@ if __name__ == "__main__":
     # Iteration 2: Golden, direction S^(1)
     delta1 = compute_delta(x1, s1)
     phi2 = make_phi(x1, s1)
-    print("=" * 70)
+    print("\n")
     interval_sven_2 = get_sven_interval(phi2, delta1)
     lambda1, interval2 = line_search("golden", phi2, interval_sven_2, EPS)
     x2 = next_point(x1, s1, lambda1)
+    print("\n")
     print_iteration(2, "golden", x1, s1, delta1, interval_sven_2, interval2, lambda1, x2)
 
     # Iteration 3: DSK-Powell, direction S^(2)
     delta2 = compute_delta(x2, s2)
     phi3 = make_phi(x2, s2)
-    print("=" * 70)
+    print("\n")
     interval_sven_3 = get_sven_interval(phi3, delta2)
     lambda2, interval3 = line_search("powell", phi3, interval_sven_3, EPS)
     x3 = next_point(x2, s2, lambda2)
@@ -165,7 +170,7 @@ if __name__ == "__main__":
         raise ValueError("Direction (x^3 - x^1) is near zero; cannot continue iteration 4.")
     delta3 = compute_delta(x3, s4)
     phi4 = make_phi(x3, s4)
-    print("=" * 70)
+    print("\n")
     interval_sven_4 = get_sven_interval(phi4, delta3)
     lambda3, interval4 = line_search("powell", phi4, interval_sven_4, EPS)
     x4 = next_point(x3, s4, lambda3)

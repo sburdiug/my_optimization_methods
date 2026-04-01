@@ -22,12 +22,16 @@ def sven_method(f, x0, delta):
         # Рухаємось вправо
         print("Напрямок: вправо")
         delta = abs(delta)
+        x_prev = x0
         x_curr = x0
+        f_curr = f0
     elif f_minus < f0 < f_plus:
         # Рухаємось вліво
         print("Напрямок: вліво")
         delta = -abs(delta)
+        x_prev = x0
         x_curr = x0
+        f_curr = f0
     elif f_minus >= f0 and f_plus >= f0:
         print("Мінімум між x0-Δ та x0+Δ")
         return (min(x_minus, x_plus), max(x_minus, x_plus)), points
@@ -42,20 +46,21 @@ def sven_method(f, x0, delta):
 
         print(f"[k={k + 1}] x={x_next:.3f} f={f_next:.3f}")
 
-        if f_next > f(x_curr):
-            # Мінімум знайдено: додаємо проміжну точку
+        if f_next > f_curr:
+            # Мінімум лежить між попередньою та новою точками.
             print("f зросла, зупинка")
             x_mid = (x_curr + x_next) / 2
             f_mid = f(x_mid)
             points.append((k + 2, x_mid, f_mid))
             print(f"[k={k + 2}] x={x_mid:.3f} f={f_mid:.3f}")
-            # Робимо x_mid центром інтервалу (а не граничною точкою).
-            a = min(x_curr, x_next)
-            b = max(x_curr, x_next)
+            a = min(x_prev, x_next)
+            b = max(x_prev, x_next)
             print(f"Інтервал: [{a:.3f}, {b:.3f}] (L={b - a:.3f})")
             return (a, b), points
 
+        x_prev = x_curr
         x_curr = x_next
+        f_curr = f_next
         k += 1
 
 

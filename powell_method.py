@@ -19,11 +19,12 @@ def powell_method(f, a, b, eps=0.01, max_iter=100):
             x_star = x2
 
         f_star = f(x_star)
-        dx = abs(x_star - x2)
-        df = abs(f_star - f2)
+        x_min, f_min = min(((x1, f1), (x2, f2), (x3, f3)), key=lambda item: item[1])
+        dx = abs(x_min - x_star)
+        df = abs(f_min - f_star)
         print(
             f"[{k}] x1={x1:.3f} x2={x2:.3f} x3={x3:.3f} x*={x_star:.3f} | "
-            f"|x*-x2|={dx:.3e} | |f*-f2|={df:.3e}"
+            f"xmin={x_min:.3f} | |x*-xmin|={dx:.3e} | |f*-fmin|={df:.3e}"
         )
 
         # Критерій завершення ДСК-Пауелла.
@@ -33,11 +34,39 @@ def powell_method(f, a, b, eps=0.01, max_iter=100):
                 "x2": x2,
                 "x3": x3,
                 "x_star": x_star,
+                "x_min": x_min,
+                "f_min": f_min,
                 "dx": dx,
                 "df": df,
                 "criterion_met": True,
                 "iterations": k + 1,
             }
+
+        if abs(x_star - x2) <= tiny:
+            if abs(x_min - x1) <= tiny:
+                x3 = x2
+                f3 = f2
+                x2 = 0.5 * (x1 + x3)
+                f2 = f(x2)
+            elif abs(x_min - x3) <= tiny:
+                x1 = x2
+                f1 = f2
+                x2 = 0.5 * (x1 + x3)
+                f2 = f(x2)
+            else:
+                return x2, {
+                    "x1": x1,
+                    "x2": x2,
+                    "x3": x3,
+                    "x_star": x2,
+                    "x_min": x_min,
+                    "f_min": f_min,
+                    "dx": dx,
+                    "df": df,
+                    "criterion_met": False,
+                    "iterations": k + 1,
+                }
+            continue
 
         if x_star > x2:
             if f_star >= f2:
@@ -63,13 +92,17 @@ def powell_method(f, a, b, eps=0.01, max_iter=100):
             xs.sort(key=lambda item: item[0])
             (x1, f1), (x2, f2), (x3, f3) = xs
 
+    x_min, f_min = min(((x1, f1), (x2, f2), (x3, f3)), key=lambda item: item[1])
+    f_star = f(x2)
     return x2, {
         "x1": x1,
         "x2": x2,
         "x3": x3,
         "x_star": x2,
-        "dx": 0.0,
-        "df": 0.0,
+        "x_min": x_min,
+        "f_min": f_min,
+        "dx": abs(x_min - x2),
+        "df": abs(f_min - f_star),
         "criterion_met": False,
         "iterations": max_iter,
     }
