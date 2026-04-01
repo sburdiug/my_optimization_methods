@@ -5,3 +5,4 @@ task2_kr1.py
 /.idea
 .gitattributes
 *.png
+/.claude
