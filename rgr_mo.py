@@ -49,16 +49,32 @@ def get_sven_interval(phi, delta_lambda):
 def line_search(method, phi, interval, eps):
     if method == "golden":
         result_interval, _ = golden_section_method(phi, interval[0], interval[1], eps)
+        return np.mean(result_interval), result_interval
     elif method == "powell":
-        result_interval = powell_method(phi, interval[0], interval[1], eps)
+        lambda_star, powell_info = powell_method(phi, interval[0], interval[1], eps)
+        return lambda_star, powell_info
     else:
         raise ValueError("method must be 'golden' or 'powell'")
-
-    return np.mean(result_interval), result_interval
 
 
 def next_point(xk, direction, lmbd):
     return xk + lmbd * direction
+
+
+def print_powell_history(history):
+    for item in history:
+        print(
+            f"  [{item['k']}] x1 = {item['x1']:.3f}, x2 = {item['x2']:.3f}, "
+            f"x3 = {item['x3']:.3f}, x* = {item['x_star']:.3f}"
+        )
+        print(
+            f"      f1 = {item['f1']:.3f}, f2 = {item['f2']:.3f}, "
+            f"f3 = {item['f3']:.3f}, f* = {item['f_star']:.3f}"
+        )
+        print(
+            f"      x_min = {item['x_min']:.3f}, f_min = {item['f_min']:.3f}, "
+            f"|x*-x_min| = {item['dx']:.3e}, |f(x*)-f_min| = {item['df']:.3e}"
+        )
 
 
 def print_iteration(iteration_idx, method_name, xk, direction, delta_lambda, src_interval, result_interval, lmbd, x_next):
@@ -67,15 +83,25 @@ def print_iteration(iteration_idx, method_name, xk, direction, delta_lambda, src
     print(f"s = ({direction[0]:.3f}, {direction[1]:.3f})")
     if iteration_idx == 4:
         print(f"x3-x1 = ({direction[0]:.3f}, {direction[1]:.3f})")
+    if iteration_idx == 2:
+        step_by_points = np.linalg.norm(x_next - xk)
+        step_by_lambda = abs(lmbd) * np.linalg.norm(direction)
+        print(f"Перевірка кроку (іт.2): ||x^2-x^1|| = {step_by_points:.3f}, |λ1|*||s|| = {step_by_lambda:.3f}")
     print(f"Δλ = {delta_lambda:.3f}")
     print(f"Інтервал невизначеності = [{src_interval[0]:.3f}, {src_interval[1]:.3f}]")
     if method_name.lower() == "dsk-powell":
-        x1 = src_interval[0]
-        x3 = src_interval[1]
-        x2 = 0.5 * (x1 + x3)
-        print(f"x1 = {x1:.3f}, x2 = {x2:.3f}, x3 = {x3:.3f}, x* = {lmbd:.3f}")
+        print("Хід методу ДСК-Пауелла:")
+        print_powell_history(result_interval["history"])
+        print(
+            f"x1 = {result_interval['x1']:.3f}, x2 = {result_interval['x2']:.3f}, "
+            f"x3 = {result_interval['x3']:.3f}, x* = {result_interval['x_star']:.3f}"
+        )
     else:
         print(f"Вихідний інтервал = [{result_interval[0]:.3f}, {result_interval[1]:.3f}]")
+        if iteration_idx == 2:
+            print(
+                f"Обчислення λ1: ({result_interval[0]:.3f} + {result_interval[1]:.3f}) / 2 = {lmbd:.3f}"
+            )
     print(f"λ_{iteration_idx - 1} = {lmbd:.3f}")
     print(f"x^{iteration_idx} = ({x_next[0]:.3f}, {x_next[1]:.3f})")
 
@@ -132,16 +158,17 @@ if __name__ == "__main__":
     # Iteration 2: Golden, direction S^(1)
     delta1 = compute_delta(x1, s1)
     phi2 = make_phi(x1, s1)
-    print("=" * 70)
+    print("\n")
     interval_sven_2 = get_sven_interval(phi2, delta1)
     lambda1, interval2 = line_search("golden", phi2, interval_sven_2, EPS)
     x2 = next_point(x1, s1, lambda1)
+    print("\n")
     print_iteration(2, "golden", x1, s1, delta1, interval_sven_2, interval2, lambda1, x2)
 
     # Iteration 3: DSK-Powell, direction S^(2)
     delta2 = compute_delta(x2, s2)
     phi3 = make_phi(x2, s2)
-    print("=" * 70)
+    print("\n")
     interval_sven_3 = get_sven_interval(phi3, delta2)
     lambda2, interval3 = line_search("powell", phi3, interval_sven_3, EPS)
     x3 = next_point(x2, s2, lambda2)
@@ -153,7 +180,7 @@ if __name__ == "__main__":
         raise ValueError("Direction (x^3 - x^1) is near zero; cannot continue iteration 4.")
     delta3 = compute_delta(x3, s4)
     phi4 = make_phi(x3, s4)
-    print("=" * 70)
+    print("\n")
     interval_sven_4 = get_sven_interval(phi4, delta3)
     lambda3, interval4 = line_search("powell", phi4, interval_sven_4, EPS)
     x4 = next_point(x3, s4, lambda3)
