@@ -8,3 +8,4 @@ task2_kr1.py
 /.claude
 cw.zip
 /cw/optimization/__pycache__
+*.zip
