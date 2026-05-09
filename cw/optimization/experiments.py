@@ -48,11 +48,11 @@ BASE_PARAMS = {
 }
 
 EXPERIMENTS = {
-    "derivative_h": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5],
+    "derivative_h": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
     "gradient_scheme": ["forward", "backward", "central"],
     "line_search_method": ["golden", "dsk_powell"],
-    "line_search_eps": [1e-6, 1e-8, 1e-10, 1e-12],
-    "sven_alpha": [0.001, 0.005, 0.01, 0.05, 0.1],
+    "line_search_eps": [1e-1, 1e-2, 1e-3, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12],
+    "sven_alpha": [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0],
     "stop_criterion": ["gradient", "combined"],
 }
 
@@ -82,12 +82,31 @@ DISPLAY_COLUMN_LABELS = {
     "F_penalty": "значення штрафної функції",
     "constraint_value": "значення обмеження g(x)",
     "violation": "порушення обмеження",
+    "distance_to_boundary": "відстань до межі області",
+    "r_final": "фінальний коефіцієнт штрафу r",
+    "x_start": "початкова точка",
+    "iterations_total": "сумарна кількість ітерацій",
+    "func_calls_total": "сумарна кількість викликів функції",
 }
 
 
 def format_point(x):
     arr = np.asarray(x, dtype=float).reshape(-1)
     return "[" + ", ".join(f"{v:.8f}" for v in arr) + "]"
+
+
+def distance_to_circle_boundary(x):
+    x = np.asarray(x, dtype=float)
+    return abs(float(np.linalg.norm(x)) - 1.0)
+
+
+def method_display_name(method_fn):
+    method_name = getattr(method_fn, "__name__", "")
+    if method_name == "steepest_descent":
+        return "МНС"
+    if method_name == "partan_steepest_descent":
+        return "ПАРТАН-МНС"
+    return method_name or "метод"
 
 
 def result_row(parameter_value, result):
@@ -248,7 +267,7 @@ def run_all_experiments(base_params=None):
 def penalty_experiment(
     method_fn,
     base_params=None,
-    r_values=(1, 10, 100, 1000, 10000),
+    r_values=(1, 10, 100, 1000, 10000, 100000),
     x_start=X_START,
 ):
     """
@@ -287,6 +306,7 @@ def penalty_experiment(
                 "F_penalty": float(result["f_final"]),
                 "constraint_value": float(g_value),
                 "violation": float(violation),
+                "distance_to_boundary": float(distance_to_circle_boundary(x_final)),
                 "iterations": int(result["iterations"]),
                 "func_calls": int(result["func_calls"]),
                 "status": STATUS_LABELS.get(
@@ -301,7 +321,88 @@ def penalty_experiment(
     return pd.DataFrame(rows)
 
 
-def compare_penalty_methods(base_params=None, r_values=(1, 10, 100, 1000, 10000)):
+def penalty_experiment_summary(table, method=None):
+    if table.empty:
+        raise ValueError("Таблиця штрафного експерименту порожня.")
+
+    final = table.iloc[-1]
+    statuses = table["status"].astype(str).unique()
+    status = final["status"] if len(statuses) == 1 else ", ".join(statuses)
+    row = {
+        "method": method,
+        "r_final": final["r"],
+        "x_final": final["x_final"],
+        "f_original": final["f_original"],
+        "F_penalty": final["F_penalty"],
+        "constraint_value": final["constraint_value"],
+        "violation": final["violation"],
+        "distance_to_boundary": final["distance_to_boundary"],
+        "iterations_total": int(table["iterations"].sum()),
+        "func_calls_total": int(table["func_calls"].sum()),
+        "status": status,
+    }
+    if method is None:
+        row.pop("method")
+    return row
+
+
+def penalty_start_point_experiment(
+    method_fn,
+    start_points,
+    base_params=None,
+    r_values=(1, 10, 100, 1000, 10000),
+):
+    base_params = dict(BASE_PARAMS if base_params is None else base_params)
+    rows = []
+
+    for x_start in start_points:
+        table = penalty_experiment(
+            method_fn=method_fn,
+            base_params=base_params,
+            r_values=r_values,
+            x_start=x_start,
+        )
+        summary = penalty_experiment_summary(table)
+        summary["x_start"] = format_point(x_start)
+        rows.append(
+            {
+                "x_start": summary["x_start"],
+                "x_final": summary["x_final"],
+                "f_original": summary["f_original"],
+                "constraint_value": summary["constraint_value"],
+                "violation": summary["violation"],
+                "distance_to_boundary": summary["distance_to_boundary"],
+                "iterations_total": summary["iterations_total"],
+                "func_calls_total": summary["func_calls_total"],
+                "status": summary["status"],
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def compare_penalty_start_points(
+    base_params=None,
+    start_points=((-1.5, 0.0), (1.5, 0.0), (0.0, 1.5), (-1.0, -1.0), (2.0, 2.0)),
+    r_values=(1, 10, 100, 1000, 10000),
+):
+    base_params = dict(BASE_PARAMS if base_params is None else base_params)
+    frames = []
+
+    for method_name, method_fn in METHODS.items():
+        table = penalty_start_point_experiment(
+            method_fn=method_fn,
+            start_points=start_points,
+            base_params=base_params,
+            r_values=r_values,
+        )
+        table.insert(0, "method", method_name)
+        frames.append(table)
+
+    return pd.concat(frames, ignore_index=True)
+
+
+def compare_penalty_methods(base_params=None, r_values=(1, 10, 100, 1000, 10000, 100000)):
     base_params = dict(BASE_PARAMS if base_params is None else base_params)
 
     return {
