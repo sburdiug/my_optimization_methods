@@ -44,7 +44,7 @@ BASE_PARAMS = {
     "line_search_method": "golden",
     "line_search_eps": 1e-12,
     "sven_alpha": 0.01,
-    "stop_criterion": "gradient",
+    "stop_criterion": "combined",
 }
 
 EXPERIMENTS = {
@@ -334,6 +334,10 @@ def run_experiments(output_dir="results"):
     fig.tight_layout()
     fig.savefig(out / "summary_plots.png", dpi=180)
     plt.close(fig)
+
+    penalty_tables = compare_penalty_methods(base_params=BASE_PARAMS)
+    tables["penalty_МНС"] = penalty_tables["МНС"]
+    tables["penalty_ПАРТАН-МНС"] = penalty_tables["ПАРТАН-МНС"]
 
     return {
         "output_dir": str(out.resolve()),
