@@ -6,3 +6,5 @@ task2_kr1.py
 .gitattributes
 *.png
 /.claude
+cw.zip
+/cw/optimization/__pycache__
