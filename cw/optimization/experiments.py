@@ -10,7 +10,8 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from partan_steepest_descent_method import partan_mns
     from steepest_descent_optimal_step import steepest_descent_optimal_step
-    from optimization.functions import X_START, power_function
+    from optimization.functions import X_MIN, X_START, power_function
+    from optimization.line_search import line_search, sven_delta, sven_interval
     from optimization.partan_steepest_descent import partan_steepest_descent
     from optimization.penalty import (
         circle_constraint,
@@ -24,7 +25,8 @@ else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from partan_steepest_descent_method import partan_mns
     from steepest_descent_optimal_step import steepest_descent_optimal_step
-    from .functions import X_START, power_function
+    from .functions import X_MIN, X_START, power_function
+    from .line_search import line_search, sven_delta, sven_interval
     from .partan_steepest_descent import partan_steepest_descent
     from .penalty import (
         circle_constraint,
@@ -87,6 +89,7 @@ DISPLAY_COLUMN_LABELS = {
     "x_start": "початкова точка",
     "iterations_total": "сумарна кількість ітерацій",
     "func_calls_total": "сумарна кількість викликів функції",
+    "x_error": "відстань до точного мінімуму",
 }
 
 
@@ -115,6 +118,7 @@ def result_row(parameter_value, result):
         "x_final": format_point(result["x_final"]),
         "f_final": float(result["f_final"]),
         "grad_norm_final": float(result["grad_norm_final"]),
+        "x_error": float(np.linalg.norm(np.asarray(result["x_final"], dtype=float).reshape(-1) - X_MIN)),
         "iterations": int(result["iterations"]),
         "func_calls": int(result["func_calls"]),
         "status": STATUS_LABELS.get(result.get("status", "unknown"), result.get("status", "unknown")),
@@ -160,6 +164,13 @@ def symbolic_power_expr():
     return (10 * (x1 - x2) ** 2 + (x1 - 1) ** 2) ** 4
 
 
+def symbolic_external_penalty_expr(r=1):
+    x1, x2 = sp.symbols("x1 x2")
+    g = x1**2 + x2**2 - 1
+    penalty = sp.Piecewise((g**2, g > 0), (0, True))
+    return symbolic_power_expr() + float(r) * penalty
+
+
 def points_from_old_mns(result):
     history = result["history"]
     if not history:
@@ -201,6 +212,161 @@ def old_sympy_check(max_iter_mns=3, max_iter_partan=4, eps=1e-6):
         "partan": old_partan,
         "mns_points": points_from_old_mns(old_mns),
         "partan_points": np.asarray(old_partan["points"], dtype=float),
+    }
+
+
+def sympy_gradient_steepest_descent_penalty(
+    x_start=(-1.0, -1.0),
+    r=1,
+    base_params=None,
+):
+    """
+    Контроль МНС для штрафної функції з аналітичним градієнтом SymPy.
+
+    Крок шукається тими самими методами Свена та золотого перерізу, але
+    градієнт береться не чисельно, а з похідних SymPy для Piecewise-штрафу.
+    """
+    params = dict(BASE_PARAMS if base_params is None else base_params)
+    x1, x2 = sp.symbols("x1 x2")
+    variables = (x1, x2)
+    fx = symbolic_external_penalty_expr(r)
+    gradient_expr = [sp.diff(fx, var) for var in variables]
+    f_func = sp.lambdify(variables, fx, modules="numpy")
+    grad_func = sp.lambdify(variables, gradient_expr, modules="numpy")
+
+    xk = np.asarray(x_start, dtype=float).reshape(-1)
+    points = [xk.copy()]
+    history = []
+    func_calls = 0
+    status = "max_iter"
+
+    def counted_f(x):
+        nonlocal func_calls
+        func_calls += 1
+        return float(f_func(float(x[0]), float(x[1])))
+
+    for k in range(int(params["max_iter"])):
+        grad_k = np.asarray(grad_func(float(xk[0]), float(xk[1])), dtype=float).reshape(-1)
+        grad_norm_k = float(np.linalg.norm(grad_k))
+        f_k = counted_f(xk)
+        s_k = -grad_k
+        delta_k = 0.0
+        lambda_opt = 0.0
+        x_next = xk.copy()
+        f_next = f_k
+
+        if not np.isfinite(grad_norm_k) or not np.isfinite(f_k):
+            status = "numerical_issue"
+        elif params["stop_criterion"] == "gradient" and grad_norm_k <= params["eps"]:
+            status = "converged"
+        else:
+            if np.linalg.norm(s_k) > 1e-14:
+                phi = lambda lam: counted_f(xk + float(lam) * s_k)
+                delta_k = sven_delta(xk, s_k, params["sven_alpha"])
+                a, b = sven_interval(phi, delta=delta_k)
+                lambda_opt = line_search(
+                    phi,
+                    method=params["line_search_method"],
+                    a=a,
+                    b=b,
+                    eps=params["line_search_eps"],
+                )
+                x_next = xk + lambda_opt * s_k
+                f_next = counted_f(x_next)
+                if not np.isfinite(lambda_opt) or not np.isfinite(f_next) or not np.all(np.isfinite(x_next)):
+                    status = "numerical_issue"
+
+            if params["stop_criterion"] == "combined" and status != "numerical_issue":
+                denom = max(float(np.linalg.norm(xk)), 1e-12)
+                rel_x = float(np.linalg.norm(x_next - xk)) / denom
+                diff_f = abs(f_next - f_k)
+                if np.isfinite(rel_x) and np.isfinite(diff_f) and rel_x <= params["eps"] and diff_f <= params["eps"]:
+                    status = "converged"
+
+        history.append(
+            {
+                "k": k,
+                "x": xk.copy(),
+                "f_x": f_k,
+                "grad": grad_k.copy(),
+                "grad_norm": grad_norm_k,
+                "s": s_k.copy(),
+                "sven_delta": float(delta_k),
+                "lambda_opt": float(lambda_opt),
+                "x_next": x_next.copy(),
+                "f_next": float(f_next),
+                "func_calls": int(func_calls),
+            }
+        )
+
+        xk = x_next
+        points.append(xk.copy())
+        if status in {"converged", "numerical_issue"}:
+            break
+
+    grad_final = np.asarray(grad_func(float(xk[0]), float(xk[1])), dtype=float).reshape(-1)
+    f_final = counted_f(xk)
+
+    return {
+        "method": "sympy_gradient_steepest_descent_penalty",
+        "x_final": xk,
+        "f_final": float(f_final),
+        "grad_final": grad_final,
+        "grad_norm_final": float(np.linalg.norm(grad_final)),
+        "iterations": len(history),
+        "func_calls": int(func_calls),
+        "points": np.vstack(points),
+        "history": history,
+        "status": status,
+        "fx": fx,
+        "gradient_expr": gradient_expr,
+    }
+
+
+def sympy_penalty_s4_check(base_params=None):
+    params = dict(BASE_PARAMS if base_params is None else base_params)
+    x_start = (-1.0, -1.0)
+    r = 1
+    sympy_result = sympy_gradient_steepest_descent_penalty(
+        x_start=x_start,
+        r=r,
+        base_params=params,
+    )
+    numpy_result = steepest_descent(
+        make_external_penalty_function(power_function, [circle_constraint], r),
+        x_start,
+        **params,
+    )
+
+    rows = [
+        {
+            "method": "МНС NumPy",
+            "x_start": format_point(x_start),
+            "r": r,
+            "x_final": format_point(numpy_result["x_final"]),
+            "F_penalty": float(numpy_result["f_final"]),
+            "grad_norm_final": float(numpy_result["grad_norm_final"]),
+            "iterations": int(numpy_result["iterations"]),
+            "func_calls": int(numpy_result["func_calls"]),
+            "status": STATUS_LABELS.get(numpy_result.get("status", "unknown"), numpy_result.get("status", "unknown")),
+        },
+        {
+            "method": "МНС SymPy-gradient",
+            "x_start": format_point(x_start),
+            "r": r,
+            "x_final": format_point(sympy_result["x_final"]),
+            "F_penalty": float(sympy_result["f_final"]),
+            "grad_norm_final": float(sympy_result["grad_norm_final"]),
+            "iterations": int(sympy_result["iterations"]),
+            "func_calls": int(sympy_result["func_calls"]),
+            "status": STATUS_LABELS.get(sympy_result.get("status", "unknown"), sympy_result.get("status", "unknown")),
+        },
+    ]
+
+    return {
+        "table": pd.DataFrame(rows),
+        "numpy": numpy_result,
+        "sympy": sympy_result,
     }
 
 
@@ -300,6 +466,7 @@ def penalty_experiment(
 
         rows.append(
             {
+                "x_start": format_point(x_start),
                 "r": r,
                 "x_final": format_point(x_final),
                 "f_original": float(power_function(x_final)),
