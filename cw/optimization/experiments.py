@@ -41,7 +41,7 @@ else:
 BASE_PARAMS = {
     "max_iter": 1000,
     "eps": 1e-3,
-    "derivative_h": 1e-4,
+    "derivative_h": 1e-3,
     "gradient_scheme": "central",
     "line_search_method": "dsk_powell",
     "line_search_eps": 1e-8,
