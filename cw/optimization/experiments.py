@@ -1,5 +1,7 @@
 import sys
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,10 +18,9 @@ if __package__ in {None, ""}:
     from optimization.penalty import (
         circle_constraint,
         make_external_penalty_function,
-        squared_penalty,
         total_violation,
     )
-    from optimization.plots import plot_method_calls_comparison, plot_trajectory
+    from optimization.plots import method_color_from_title, plot_method_calls_comparison, plot_trajectory
     from optimization.steepest_descent import steepest_descent
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -31,30 +32,29 @@ else:
     from .penalty import (
         circle_constraint,
         make_external_penalty_function,
-        squared_penalty,
         total_violation,
     )
-    from .plots import plot_method_calls_comparison, plot_trajectory
+    from .plots import method_color_from_title, plot_method_calls_comparison, plot_trajectory
     from .steepest_descent import steepest_descent
 
 
 BASE_PARAMS = {
     "max_iter": 1000,
-    "eps": 1e-6,
+    "eps": 1e-3,
     "derivative_h": 1e-4,
     "gradient_scheme": "central",
-    "line_search_method": "golden",
-    "line_search_eps": 1e-12,
+    "line_search_method": "dsk_powell",
+    "line_search_eps": 1e-8,
     "sven_alpha": 0.01,
     "stop_criterion": "combined",
 }
 
 EXPERIMENTS = {
-    "derivative_h": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
+    "derivative_h": [1, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10],
     "gradient_scheme": ["forward", "backward", "central"],
     "line_search_method": ["golden", "dsk_powell"],
     "line_search_eps": [1e-1, 1e-2, 1e-3, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12],
-    "sven_alpha": [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0],
+    "sven_alpha": [1e-8, 1e-6, 1e-5, 1e-4, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 3.0],
     "stop_criterion": ["gradient", "combined"],
 }
 
@@ -93,6 +93,19 @@ DISPLAY_COLUMN_LABELS = {
 }
 
 
+def status_label(status: object) -> str:
+    status_key = str(status)
+    return STATUS_LABELS.get(status_key, status_key)
+
+
+def result_float(result: Mapping[str, Any], key: str) -> float:
+    return float(result[key])
+
+
+def result_int(result: Mapping[str, Any], key: str) -> int:
+    return int(result[key])
+
+
 def format_point(x):
     arr = np.asarray(x, dtype=float).reshape(-1)
     return "[" + ", ".join(f"{v:.8f}" for v in arr) + "]"
@@ -116,12 +129,12 @@ def result_row(parameter_value, result):
     return {
         "parameter_value": parameter_value,
         "x_final": format_point(result["x_final"]),
-        "f_final": float(result["f_final"]),
-        "grad_norm_final": float(result["grad_norm_final"]),
+        "f_final": result_float(result, "f_final"),
+        "grad_norm_final": result_float(result, "grad_norm_final"),
         "x_error": float(np.linalg.norm(np.asarray(result["x_final"], dtype=float).reshape(-1) - X_MIN)),
-        "iterations": int(result["iterations"]),
-        "func_calls": int(result["func_calls"]),
-        "status": STATUS_LABELS.get(result.get("status", "unknown"), result.get("status", "unknown")),
+        "iterations": result_int(result, "iterations"),
+        "func_calls": result_int(result, "func_calls"),
+        "status": status_label(result.get("status", "unknown")),
     }
 
 
@@ -148,15 +161,46 @@ def compare_methods(base_params=None):
             {
                 "method": method_name,
                 "x_final": format_point(result["x_final"]),
-                "f_final": float(result["f_final"]),
-                "grad_norm_final": float(result["grad_norm_final"]),
-                "iterations": int(result["iterations"]),
-                "func_calls": int(result["func_calls"]),
-                "status": STATUS_LABELS.get(result.get("status", "unknown"), result.get("status", "unknown")),
+                "f_final": result_float(result, "f_final"),
+                "grad_norm_final": result_float(result, "grad_norm_final"),
+                "iterations": result_int(result, "iterations"),
+                "func_calls": result_int(result, "func_calls"),
+                "status": status_label(result.get("status", "unknown")),
             }
         )
 
     return pd.DataFrame(rows)
+
+
+def compare_line_search_precision(
+    base_params=None,
+    eps_values=None,
+    line_search_variants=None,
+):
+    params_template = dict(BASE_PARAMS if base_params is None else base_params)
+    eps_values = list(
+        eps_values
+        if eps_values is not None
+        else [1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0]
+    )
+    line_search_variants = dict(
+        line_search_variants
+        if line_search_variants is not None
+        else {"ДСК-Пауелла": "dsk_powell", "Golden ratio": "golden"}
+    )
+
+    results_by_line_search = {}
+    for display_name, method_key in line_search_variants.items():
+        rows = []
+        for eps in eps_values:
+            params = dict(params_template)
+            params["line_search_eps"] = eps
+            params["line_search_method"] = method_key
+            result = partan_steepest_descent(power_function, X_START, **params)
+            rows.append({"eps": eps, "func_calls": result["func_calls"]})
+        results_by_line_search[display_name] = rows
+
+    return results_by_line_search
 
 
 def symbolic_power_expr():
@@ -257,30 +301,30 @@ def sympy_gradient_steepest_descent_penalty(
 
         if not np.isfinite(grad_norm_k) or not np.isfinite(f_k):
             status = "numerical_issue"
-        elif params["stop_criterion"] == "gradient" and grad_norm_k <= params["eps"]:
+        elif str(params["stop_criterion"]) == "gradient" and grad_norm_k <= float(params["eps"]):
             status = "converged"
         else:
             if np.linalg.norm(s_k) > 1e-14:
                 phi = lambda lam: counted_f(xk + float(lam) * s_k)
-                delta_k = sven_delta(xk, s_k, params["sven_alpha"])
+                delta_k = sven_delta(xk, s_k, float(params["sven_alpha"]))
                 a, b = sven_interval(phi, delta=delta_k)
                 lambda_opt = line_search(
                     phi,
-                    method=params["line_search_method"],
+                    method=str(params["line_search_method"]),
                     a=a,
                     b=b,
-                    eps=params["line_search_eps"],
+                    eps=float(params["line_search_eps"]),
                 )
                 x_next = xk + lambda_opt * s_k
                 f_next = counted_f(x_next)
                 if not np.isfinite(lambda_opt) or not np.isfinite(f_next) or not np.all(np.isfinite(x_next)):
                     status = "numerical_issue"
 
-            if params["stop_criterion"] == "combined" and status != "numerical_issue":
+            if str(params["stop_criterion"]) == "combined" and status != "numerical_issue":
                 denom = max(float(np.linalg.norm(xk)), 1e-12)
                 rel_x = float(np.linalg.norm(x_next - xk)) / denom
                 diff_f = abs(f_next - f_k)
-                if np.isfinite(rel_x) and np.isfinite(diff_f) and rel_x <= params["eps"] and diff_f <= params["eps"]:
+                if np.isfinite(rel_x) and np.isfinite(diff_f) and rel_x <= float(params["eps"]) and diff_f <= float(params["eps"]):
                     status = "converged"
 
         history.append(
@@ -344,22 +388,22 @@ def sympy_penalty_s4_check(base_params=None):
             "x_start": format_point(x_start),
             "r": r,
             "x_final": format_point(numpy_result["x_final"]),
-            "F_penalty": float(numpy_result["f_final"]),
-            "grad_norm_final": float(numpy_result["grad_norm_final"]),
-            "iterations": int(numpy_result["iterations"]),
-            "func_calls": int(numpy_result["func_calls"]),
-            "status": STATUS_LABELS.get(numpy_result.get("status", "unknown"), numpy_result.get("status", "unknown")),
+            "F_penalty": result_float(numpy_result, "f_final"),
+            "grad_norm_final": result_float(numpy_result, "grad_norm_final"),
+            "iterations": result_int(numpy_result, "iterations"),
+            "func_calls": result_int(numpy_result, "func_calls"),
+            "status": status_label(numpy_result.get("status", "unknown")),
         },
         {
             "method": "МНС SymPy-gradient",
             "x_start": format_point(x_start),
             "r": r,
             "x_final": format_point(sympy_result["x_final"]),
-            "F_penalty": float(sympy_result["f_final"]),
-            "grad_norm_final": float(sympy_result["grad_norm_final"]),
-            "iterations": int(sympy_result["iterations"]),
-            "func_calls": int(sympy_result["func_calls"]),
-            "status": STATUS_LABELS.get(sympy_result.get("status", "unknown"), sympy_result.get("status", "unknown")),
+            "F_penalty": result_float(sympy_result, "f_final"),
+            "grad_norm_final": result_float(sympy_result, "grad_norm_final"),
+            "iterations": result_int(sympy_result, "iterations"),
+            "func_calls": result_int(sympy_result, "func_calls"),
+            "status": status_label(sympy_result.get("status", "unknown")),
         },
     ]
 
@@ -381,13 +425,14 @@ def plot_calls_table(df, title, ax=None):
         _, ax = plt.subplots(figsize=(7, 4))
         own_fig = True
 
+    plot_color = method_color_from_title(title)
     x = np.arange(len(df))
     if _is_bar_plot(df):
-        ax.bar(x, df["func_calls"], color="tab:blue", width=0.62)
-        ax.grid(True, axis="y", linestyle="--", alpha=0.35)
+        ax.bar(x, df["func_calls"], color=plot_color, width=0.62)
+        ax.grid(True, axis="y", linestyle="--", alpha=0.85)
     else:
-        ax.plot(x, df["func_calls"], "o-", color="tab:blue", linewidth=1.8)
-        ax.grid(True, linestyle="--", alpha=0.35)
+        ax.plot(x, df["func_calls"], "o-", color=plot_color, linewidth=1.8)
+        ax.grid(True, linestyle="--", alpha=0.85)
     ax.set_xticks(x)
     ax.set_xticklabels(df["parameter_value"].astype(str), rotation=20, ha="right")
     ax.set_xlabel("Значення параметра")
@@ -470,16 +515,13 @@ def penalty_experiment(
                 "r": r,
                 "x_final": format_point(x_final),
                 "f_original": float(power_function(x_final)),
-                "F_penalty": float(result["f_final"]),
+                "F_penalty": result_float(result, "f_final"),
                 "constraint_value": float(g_value),
                 "violation": float(violation),
                 "distance_to_boundary": float(distance_to_circle_boundary(x_final)),
-                "iterations": int(result["iterations"]),
-                "func_calls": int(result["func_calls"]),
-                "status": STATUS_LABELS.get(
-                    result.get("status", "unknown"),
-                    result.get("status", "unknown"),
-                ),
+                "iterations": result_int(result, "iterations"),
+                "func_calls": result_int(result, "func_calls"),
+                "status": status_label(result.get("status", "unknown")),
             }
         )
 
@@ -595,8 +637,22 @@ def run_experiments(output_dir="results"):
     partan_res = partan_steepest_descent(power_function, X_START, **BASE_PARAMS)
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    plot_trajectory(power_function, mns_res["points"], "Траєкторія МНС", cmap="Blues", ax=axes[0, 0])
-    plot_trajectory(power_function, partan_res["points"], "Траєкторія ПАРТАН-МНС", cmap="Oranges", ax=axes[0, 1])
+    plot_trajectory(
+        power_function,
+        mns_res["points"],
+        "Траєкторія МНС",
+        cmap="Oranges",
+        trajectory_color="orange",
+        ax=axes[0, 0],
+    )
+    plot_trajectory(
+        power_function,
+        partan_res["points"],
+        "Траєкторія ПАРТАН-МНС",
+        cmap="Blues",
+        trajectory_color="navy",
+        ax=axes[0, 1],
+    )
     plot_calls_table(tables["МНС_derivative_h"], "Кількість викликів функції залежно від h (МНС)", ax=axes[1, 0])
     plot_comparison_table(tables["methods_comparison"], "Порівняння МНС і ПАРТАН-МНС за викликами функції", ax=axes[1, 1])
     fig.tight_layout()
@@ -614,6 +670,6 @@ def run_experiments(output_dir="results"):
 
 
 if __name__ == "__main__":
-    result = run_experiments()
-    print(f"Готово. Графіки збережено в: {result['output_dir']}")
-    print(result["tables"]["methods_comparison"].rename(columns=DISPLAY_COLUMN_LABELS).to_string(index=False))
+    run_result = run_experiments()
+    print(f"Готово. Графіки збережено в: {run_result['output_dir']}")
+    print(run_result["tables"]["methods_comparison"].rename(columns=DISPLAY_COLUMN_LABELS).to_string(index=False))
