@@ -33,11 +33,18 @@ def partan_steepest_descent(
     status = "max_iter"
 
     for k in range(max_iter):
+        calls_iter_start = int(f_counted.calls)
         grad_k = numerical_gradient(f_counted, xk, h=derivative_h, scheme=gradient_scheme)
+        calls_after_grad = int(f_counted.calls)
         grad_norm_k = float(np.linalg.norm(grad_k))
         f_k = float(f_counted(xk))
+        calls_after_f_x = int(f_counted.calls)
+        calls_after_sven = calls_after_f_x
+        calls_after_line_search = calls_after_f_x
+        calls_after_f_next = calls_after_f_x
 
         if not np.isfinite(grad_norm_k) or not np.isfinite(f_k):
+            calls_iter_end = int(f_counted.calls)
             history.append(
                 {
                     "k": k,
@@ -50,7 +57,13 @@ def partan_steepest_descent(
                     "lambda_opt": 0.0,
                     "x_next": xk.copy(),
                     "f_next": f_k,
-                    "func_calls": int(f_counted.calls),
+                    "func_calls": calls_iter_end,
+                    "calls_gradient": int(calls_after_grad - calls_iter_start),
+                    "calls_f_x": int(calls_after_f_x - calls_after_grad),
+                    "calls_sven": 0,
+                    "calls_line_search": 0,
+                    "calls_f_next": 0,
+                    "calls_iter_total": int(calls_iter_end - calls_iter_start),
                 }
             )
             status = "numerical_issue"
@@ -58,6 +71,7 @@ def partan_steepest_descent(
             break
 
         if stop_criterion == "gradient" and grad_norm_k <= eps:
+            calls_iter_end = int(f_counted.calls)
             history.append(
                 {
                     "k": k,
@@ -70,7 +84,13 @@ def partan_steepest_descent(
                     "lambda_opt": 0.0,
                     "x_next": xk.copy(),
                     "f_next": f_k,
-                    "func_calls": int(f_counted.calls),
+                    "func_calls": calls_iter_end,
+                    "calls_gradient": int(calls_after_grad - calls_iter_start),
+                    "calls_f_x": int(calls_after_f_x - calls_after_grad),
+                    "calls_sven": 0,
+                    "calls_line_search": 0,
+                    "calls_f_next": 0,
+                    "calls_iter_total": int(calls_iter_end - calls_iter_start),
                 }
             )
             status = "converged"
@@ -101,6 +121,7 @@ def partan_steepest_descent(
             phi = lambda lam: f_counted(xk + float(lam) * s_k)
             delta_k = sven_delta(xk, s_k, sven_alpha)
             a, b = sven_interval(phi, delta=delta_k)
+            calls_after_sven = int(f_counted.calls)
             lambda_opt = line_search(
                 phi,
                 method=line_search_method,
@@ -108,8 +129,10 @@ def partan_steepest_descent(
                 b=b,
                 eps=line_search_eps,
             )
+            calls_after_line_search = int(f_counted.calls)
             x_next = xk + lambda_opt * s_k
             f_next = float(f_counted(x_next))
+            calls_after_f_next = int(f_counted.calls)
             if not np.isfinite(lambda_opt) or not np.isfinite(f_next) or not np.all(np.isfinite(x_next)):
                 status = "numerical_issue"
 
@@ -120,6 +143,7 @@ def partan_steepest_descent(
             if np.isfinite(rel_x) and np.isfinite(diff_f) and rel_x <= eps and diff_f <= eps:
                 status = "converged"
 
+        calls_iter_end = int(f_counted.calls)
         history.append(
             {
                 "k": k,
@@ -133,7 +157,13 @@ def partan_steepest_descent(
                 "lambda_opt": float(lambda_opt),
                 "x_next": x_next.copy(),
                 "f_next": float(f_next),
-                "func_calls": int(f_counted.calls),
+                "func_calls": calls_iter_end,
+                "calls_gradient": int(calls_after_grad - calls_iter_start),
+                "calls_f_x": int(calls_after_f_x - calls_after_grad),
+                "calls_sven": int(calls_after_sven - calls_after_f_x),
+                "calls_line_search": int(calls_after_line_search - calls_after_sven),
+                "calls_f_next": int(calls_after_f_next - calls_after_line_search),
+                "calls_iter_total": int(calls_iter_end - calls_iter_start),
             }
         )
 
@@ -142,9 +172,12 @@ def partan_steepest_descent(
         if status in {"converged", "numerical_issue"}:
             break
 
+    calls_before_post = int(f_counted.calls)
     grad_final = numerical_gradient(f_counted, xk, h=derivative_h, scheme=gradient_scheme)
+    calls_after_grad_final = int(f_counted.calls)
     grad_norm_final = float(np.linalg.norm(grad_final))
     f_final = float(f_counted(xk))
+    calls_after_f_final = int(f_counted.calls)
 
     return {
         "method": "partan_steepest_descent",
@@ -153,10 +186,16 @@ def partan_steepest_descent(
         "grad_final": grad_final,
         "grad_norm_final": grad_norm_final,
         "iterations": len(history),
-        "func_calls": int(f_counted.calls),
+        "func_calls": calls_after_f_final,
         "points": np.vstack(points),
         "history": history,
         "status": status,
+        "post_call_accounting": {
+            "calls_before_post": calls_before_post,
+            "calls_grad_final": int(calls_after_grad_final - calls_before_post),
+            "calls_f_final": int(calls_after_f_final - calls_after_grad_final),
+            "calls_post_total": int(calls_after_f_final - calls_before_post),
+        },
         "params": {
             "max_iter": max_iter,
             "eps": eps,

@@ -407,16 +407,24 @@ def plot_cumulative_calls_by_iteration(results: dict, title: str = "Накопи
         _, ax = plt.subplots(figsize=(8, 4))
         own_fig = True
 
+    all_iterations = []
+    all_cumulative = []
     for method_name, result in results.items():
         history = result["history"]
-        iterations = [h["k"] for h in history]
-        cumulative = [h["func_calls"] for h in history]
+        if not history:
+            continue
+        iterations = [int(h["k"]) for h in history]
+        cumulative = [int(h["func_calls"]) for h in history]
+        final_calls = int(result.get("func_calls", cumulative[-1]))
+        if final_calls > cumulative[-1]:
+            iterations = [*iterations, iterations[-1] + 1]
+            cumulative = [*cumulative, final_calls]
         ax.plot(iterations, cumulative, "o-", linewidth=1.5, markersize=3,
                 label=method_name, color=method_color(method_name))
+        all_iterations.extend(iterations)
+        all_cumulative.extend(cumulative)
 
-    all_iterations = [h["k"] for result in results.values() for h in result["history"]]
-    all_cumulative = [h["func_calls"] for result in results.values() for h in result["history"]]
-    _apply_axis_limits(ax, all_iterations, all_cumulative)
+    _apply_axis_limits(ax, all_iterations if all_iterations else None, all_cumulative if all_cumulative else None)
     ax.set_xlabel("Номер ітерації k")
     ax.set_ylabel("Накопичена кількість викликів функції")
     if title:
